@@ -8,49 +8,74 @@ from pymongo import MongoClient
 st.title("🎭 Shakespeare Character Network + Sentiment")
 
 
+from pydracor import DraCor
+
+# Initialize API client
+dracor = DraCor()
+
+# List available Shakespeare plays
+corpora = dracor.corpora_names()
+# corpora includes 'shake' for Shakespeare
+
+plays = dracor.corpora(include='metrics')['shake']['play_ids']
+
+# Fetch one play
+play = dracor.play(play_name='Macbeth', corpus_name='shake')
+
+# Extract character spoken text
+char_text = play.spoken_text_by_character()
+
+from pymongo import MongoClient
 
 client = MongoClient(st.secrets["mongo_uri"])
 db = client["shakespeare_db"]
 collection = db["plays"]
 
-# Example usage
-hamlet = collection.find_one({"title": "Hamlet"})
-st.write(hamlet)
-
-# Dummy data (pretend lines from Shakespeare)
-lines = [
-    {"speaker": "HAMLET", "text": "To be, or not to be, that is the question."},
-    {"speaker": "OPHELIA", "text": "O, what a noble mind is here o'erthrown!"},
-    {"speaker": "HAMLET", "text": "Get thee to a nunnery."},
-    {"speaker": "POLONIUS", "text": "Though this be madness, yet there is method in't."}
-]
-
-# Calculate sentiment per speaker
-character_sentiments = defaultdict(list)
-for line in lines:
-    sentiment = TextBlob(line["text"]).sentiment.polarity
-    character_sentiments[line["speaker"]].append(sentiment)
-
-avg_sentiments = {
-    char: round(sum(scores) / len(scores), 3) 
-    for char, scores in character_sentiments.items()
+doc = {
+    "title": play.play_title,
+    "corpus": "shake",
+    "characters": [
+        {"name": char, "text": text}
+        for char, text in char_text.items()
+    ]
 }
 
-st.subheader("💬 Average Sentiment per Character")
-for char, score in avg_sentiments.items():
-    st.write(f"**{char}:** {score}")
+collection.insert_one(doc)
 
-# Build simple character network (edges between consecutive speakers)
+import streamlit as st
+from pymongo import MongoClient
+import networkx as nx
+import matplotlib.pyplot as plt
+from textblob import TextBlob
+from collections import defaultdict
+
+# Connect to MongoDB
+client = MongoClient(st.secrets["mongo_uri"])
+collection = client["shakespeare_db"]["plays"]
+
+# Select a play
+play = collection.find_one({"title": "Macbeth"})
+st.title(f"📖 {play['title']}")
+
+# Compute sentiment per character
+avg_sent = {}
+for ch in play["characters"]:
+    texts = ch["text"]
+    scores = [TextBlob(t).sentiment.polarity for t in texts]
+    avg_sent[ch["name"]] = sum(scores)/len(scores)
+
+st.subheader("Sentiments")
+st.json(avg_sent)
+
+# Build a simple character co-occurrence network
 G = nx.Graph()
-speakers = [line["speaker"] for line in lines]
-for i in range(len(speakers)-1):
-    if speakers[i] != speakers[i+1]:
-        G.add_edge(speakers[i], speakers[i+1])
+chars = [ch["name"] for ch in play["characters"]]
+for i in range(len(chars)-1):
+    G.add_edge(chars[i], chars[i+1])
 
-st.subheader("🕸️ Character Interaction Network")
-
+st.subheader("Character Network")
 fig, ax = plt.subplots()
-nx.draw(G, with_labels=True, node_color='lightblue', edge_color='gray', ax=ax)
+nx.draw(G, with_labels=True, node_color='skyblue', ax=ax)
 st.pyplot(fig)
 
 
