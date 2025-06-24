@@ -3,8 +3,19 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from textblob import TextBlob
 from collections import defaultdict
+from pymongo import MongoClient
 
 st.title("🎭 Shakespeare Character Network + Sentiment")
+
+
+
+client = MongoClient(st.secrets["mongo_uri"])
+db = client["shakespeare_db"]
+collection = db["plays"]
+
+# Example usage
+hamlet = collection.find_one({"title": "Hamlet"})
+st.write(hamlet)
 
 # Dummy data (pretend lines from Shakespeare)
 lines = [
@@ -41,4 +52,7 @@ st.subheader("🕸️ Character Interaction Network")
 fig, ax = plt.subplots()
 nx.draw(G, with_labels=True, node_color='lightblue', edge_color='gray', ax=ax)
 st.pyplot(fig)
+
+
+
 
