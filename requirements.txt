@@ -4,3 +4,4 @@ matplotlib
 textblob
 pymongo
 pydracor
+lxml
