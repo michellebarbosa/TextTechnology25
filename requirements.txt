@@ -5,3 +5,5 @@ textblob
 pymongo
 pydracor
 lxml
+pandas==2.0.3
+pyarrow==12.0.0  # Known stable version
