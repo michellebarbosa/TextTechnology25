@@ -1,127 +1,93 @@
 import requests
 from pymongo import MongoClient
-import xml.etree.ElementTree as ET
-import csv
-import io
 import time
 from urllib.parse import quote
+import pandas as pd
+from bs4 import BeautifulSoup
 
-# MongoDB Setup
-client = MongoClient('mongodb+srv://michellebarbosa789:7y1FnkKc5VpvfAMs@shakespear.hgzdqud.mongodb.net/?retryWrites=true&w=majority&appName=shakespear')
-db = client['dracor_db']
-cooccurrence_collection = db['cooccurrence_networks']
-tei_collection = db['tei_xmls']
-metadata_collection = db['plays_metadata']
+# MongoDB setup (unchanged)
+client = MongoClient('mongodb+srv://testingco:Ilovescience08@shakespear.hgzdqud.mongodb.net/?retryWrites=true&w=majority&appName=shakespear')  
+db = client['dracor_db']  
+plays_collection = db['plays']  
+corpora_collection = db['corpora']  
 
-# DraCor API Configuration
-DRACOR_API = "https://dracor.org/api/v1"
-CORPUS = "shake"
+# DraCor API configuration (unchanged)
+API_VERSION = "v1"  
+API_URL = "https://dracor.org/api/v1/"
 
-def get_all_plays_in_corpus(corpus):
-    """Fetch metadata for all plays in a corpus"""
-    url = f"{DRACOR_API}/corpora/{quote(corpus)}/plays"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching plays for corpus {corpus}: {e}")
-        return None
+# Your original code for getting corpus list (unchanged)
+CORPORA_EXT_PLAIN = "corpora"
+api_corpora_url = API_URL + CORPORA_EXT_PLAIN
+print(f"URL for getting the list of corpora: {api_corpora_url}\n")
+corpus_list = requests.get(api_corpora_url).json()
+corpus_abbreviations = []
+for corpus_description in corpus_list:
+    name = corpus_description["name"]
+    print(f'{name}: {corpus_description["title"]}')
+    corpus_abbreviations.append(name)
 
-def download_cooccurrence_csv(corpus, play_name):
-    """Download co-occurrence network CSV"""
-    url = f"{DRACOR_API}/corpora/{quote(corpus)}/play/{quote(play_name)}/networkdata/csv"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.RequestException as e:
-        print(f"Error downloading CSV for {play_name}: {e}")
-        return None
+# Your original corpus selection (unchanged)
+CORPORA_EXT = "corpora/"
+METADAT_EXT = "/metadata"
+for i in range(10):
+    corpusname = str(input("Please choose a corpusname from the list above. Enter the abbreviation: "))
+    if corpusname not in corpus_abbreviations:
+        print("The abbreviation you selected is not in the list. Please enter the abbreviation again.")
+    else:
+        print("Success!")
+        break
+else:
+    corpusname = "swe"
 
-def download_tei_xml(corpus, play_name):
-    """Download TEI XML"""
-    url = f"{DRACOR_API}/corpora/{quote(corpus)}/play/{quote(play_name)}/tei"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.RequestException as e:
-        print(f"Error downloading TEI for {play_name}: {e}")
-        return None
+# Your original metadata retrieval (unchanged)
+corpus_metadata_path = API_URL + CORPORA_EXT + corpusname + METADAT_EXT
+print(f"URL for getting the metadata of a specific corpus: {corpus_metadata_path}\n")
+metadata_file = requests.get(corpus_metadata_path, headers={"accept": "text/csv"}, stream=True)
+metadata_file.raw.decode_content=True
+metadata_df = pd.read_csv(metadata_file.raw, sep=",", encoding="utf-8")
 
-def store_play_data(corpus, play_metadata, csv_data, tei_data):
-    """Store all data for a play in MongoDB"""
-    # Store metadata
-    play_metadata['corpus'] = corpus
-    metadata_collection.update_one(
-        {'name': play_metadata['name'], 'corpus': corpus},
-        {'$set': play_metadata},
-        upsert=True
-    )
-    
-    # Store co-occurrence network (CSV)
-    if csv_data:
-        csv_reader = csv.DictReader(io.StringIO(csv_data))
-        cooccurrence_data = [row for row in csv_reader]
-        
-        cooccurrence_collection.update_one(
-            {'play_name': play_metadata['name'], 'corpus': corpus},
-            {'$set': {
-                'play_name': play_metadata['name'],
-                'corpus': corpus,
-                'type': 'cooccurrence_network',
-                'data': cooccurrence_data,
-                'title': play_metadata.get('title'),
-                'author': play_metadata.get('author'),
-                'year': play_metadata.get('year')
-            }},
-            upsert=True
-        )
-    
-    # Store TEI XML
-    if tei_data:
-        tei_collection.update_one(
-            {'play_name': play_metadata['name'], 'corpus': corpus},
-            {'$set': {
-                'play_name': play_metadata['name'],
-                'corpus': corpus,
-                'type': 'tei_xml',
-                'xml': tei_data,
-                'title': play_metadata.get('title'),
-                'author': play_metadata.get('author'),
-                'year': play_metadata.get('year')
-            }},
-            upsert=True
-        )
+# Your original play selection (unchanged)
+PLAY_EXT = "/plays/"
+PLAY_KEY = "name"
+for i in range(10):
+    play_name = str(input("Please choose a text from the corpus you have chosen. Enter the text name: "))
+    if play_name not in metadata_df[PLAY_KEY].values:
+        print("The name you selected is not in the list. Please enter the name again.")
+    else:
+        print("Success!")
+        break
+else:
+    play_name = "strindberg-gillets-hemlighet"
 
-def process_all_plays(corpus):
-    """Process all plays in a corpus"""
-    plays = get_all_plays_in_corpus(corpus)
-    if not plays:
-        print(f"No plays found for corpus {corpus}")
-        return
-    
-    print(f"Found {len(plays)} plays in {corpus} corpus")
-    
-    for play in plays:
-        play_name = play.get('name')
-        if not play_name:
-            continue
-            
-        print(f"\nProcessing: {play.get('title', play_name)}")
-        
-        # Download data
-        csv_data = download_cooccurrence_csv(corpus, play_name)
-        tei_data = download_tei_xml(corpus, play_name)
-        
-        # Store in MongoDB
-        store_play_data(corpus, play, csv_data, tei_data)
-        
-        # Be polite with API requests
-        time.sleep(1)
-    
-    print("\nAll plays processed successfully!")
+# Corrected TEI endpoint (minimal change)
+TEI_EXT = "/tei"
+play_tei_path = API_URL + CORPORA_EXT + corpusname + PLAY_EXT + play_name + TEI_EXT
+print(f"URL for getting TEI of a specific play: {play_tei_path}\n")
 
-if __name__ == "__main__":
-    process_all_plays(CORPUS)
+# Get TEI data
+tei_response = requests.get(play_tei_path)
+tei_response.raise_for_status()  # Check for errors
+
+# Store in MongoDB (NEW - this is what you asked about)
+play_data = {
+    "corpus": corpusname,
+    "play_name": play_name,
+    "tei_xml": tei_response.text,  # Storing raw XML
+    "metadata": metadata_df[metadata_df[PLAY_KEY] == play_name].to_dict('records')[0],
+    "timestamp": time.time()
+}
+
+# Insert into MongoDB
+result = plays_collection.insert_one(play_data)
+print(f"\nSuccessfully stored data in MongoDB with ID: {result.inserted_id}")
+
+# Print confirmation
+print("\nStored document contains:")
+print(f"- Corpus: {corpusname}")
+print(f"- Play: {play_name}")
+print(f"- Metadata keys: {list(play_data['metadata'].keys())}")
+print(f"- TEI XML size: {len(tei_response.text)} characters")
+
+# You can still print the TEI if needed (first 500 chars)
+print("\nFirst 500 characters of TEI:")
+print(tei_response.text[:500] + "...")
