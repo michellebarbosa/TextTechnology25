@@ -68,7 +68,6 @@ print(f"URL for getting TEI of a specific play: {play_tei_path}\n")
 tei_response = requests.get(play_tei_path)
 tei_response.raise_for_status()  # Check for errors
 
-# Store in MongoDB (NEW - this is what you asked about)
 play_data = {
     "corpus": corpusname,
     "play_name": play_name,

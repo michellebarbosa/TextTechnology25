@@ -20,43 +20,43 @@ COLLECTION_NAME = "plays"
 # 2. DRACOR API FUNCTIONS
 # =====================================
 def get_all_plays():
-    """Fetch metadata for all plays in the Shakespeare corpus"""
+    #Fetch metadata for all plays in the Shakespeare corpus
     url = f"{DRACOR_API}/corpora/{CORPUS_NAME}/metadata"
     try:
         response = requests.get(url, headers=HEADERS)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"❌ Failed to fetch plays: {e}")
+        print(f"Failed to fetch plays: {e}")
         return None
 
 def get_play_tei(play_name):
-    """Fetch TEI/XML for a specific play"""
+    #Fetch TEI/XML for a specific play
     url = f"{DRACOR_API}/corpora/{CORPUS_NAME}/plays/{play_name}/tei"
     try:
         response = requests.get(url)
         response.raise_for_status()
         return response.text
     except requests.exceptions.RequestException as e:
-        print(f"❌ Failed to fetch TEI for {play_name}: {e}")
+        print(f"Failed to fetch TEI for {play_name}: {e}")
         return None
 
 # =====================================
 # 3. MONGODB FUNCTIONS (FIXED)
 # =====================================
 def get_mongodb_collection():
-    """Establish MongoDB connection and return collection"""
+    #stablish MongoDB connection and return collection
     try:
         client = MongoClient(MONGODB_URI)
-        client.admin.command('ping')  # Test connection
+        client.admin.command('ping')
         db = client[DB_NAME]
         return db[COLLECTION_NAME]
     except Exception as e:
-        print(f"❌ MongoDB connection failed: {e}")
+        print(f"MongoDB connection failed: {e}")
         return None
 
 def store_play(collection, play_data):
-    """Store or update a play in MongoDB"""
+    #tore or update a play in MongoDB
     try:
         result = collection.update_one(
             {"play_id": play_data["play_id"]},
@@ -65,7 +65,7 @@ def store_play(collection, play_data):
         )
         return result.upserted_id or result.modified_count
     except Exception as e:
-        print(f"❌ Failed to store play: {e}")
+        print(f"Failed to store play: {e}")
         return False
 
 # =====================================
@@ -115,9 +115,9 @@ def transfer_plays():
         # Store in MongoDB
         if store_play(collection, play_data):
             success_count += 1
-            print("✅ Done")
+            print("Done")
         else:
-            print("❌ Failed to store")
+            print("Failed to store")
     
     # Final report
     print(f"\n🎉 Successfully transferred {success_count}/{len(plays)} plays")
