@@ -32,3 +32,30 @@ MongoDB connection issues:
 Verify your IP is whitelisted in Atlas
 
 Check .env file formatting (no quotes around values)
+
+
+
+### Database Schema
+
+The project uses a MongoDB database named `shakespeare_db` with a collection called `plays`. Each document in the collection has the following structure:
+
+- **`title`**: (String) The title of the play.
+- **`corpus`**: (String) The name of the DraCor corpus (e.g., 'shake').
+- **`characters`**: (Array of Objects) A list of characters in the play.
+  - **`name`**: (String) The name of the character.
+  - **`text`**: (Array of Strings) A list containing all lines of dialogue for that character.
+ 
+### Configuration
+
+This application requires a `secrets.toml` file to store the MongoDB connection URI.
+
+1.  Create a directory named `.streamlit` in the root of the project folder.
+2.  Inside the `.streamlit` directory, create a file named `secrets.toml`.
+3.  Add the following content to the `secrets.toml` file, replacing the placeholder with your own MongoDB connection string:
+
+    ```toml
+    # .streamlit/secrets.toml
+    mongo_uri = "mongodb+srv://<user>:<password>@cluster.mongodb.net/your_db_name"
+    ```
+
+
